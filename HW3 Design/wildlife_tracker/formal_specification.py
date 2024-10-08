@@ -1,5 +1,8 @@
 from typing import Any, List, Optional
-
+from wildlife_tracker.migration_tracking.migration import Migration
+from wildlife_tracker.migration_tracking.migration_path import MigrationPath
+from wildlife_tracker.habitat_management.habitat import Habitat
+from wildlife_tracker.animal_management.animal import Animal
 
 age: Optional[int] = None
 animal_id: int
@@ -25,7 +28,6 @@ species: str
 start_date: str
 start_location: Habitat
 status: str = "Scheduled"
-
 
 def assign_animals_to_habitat(animals: List[Animal]) -> None:
     pass
@@ -76,7 +78,7 @@ def get_migration_path_by_id(path_id: int) -> MigrationPath:
     pass
 
 def get_migration_paths() -> list[MigrationPath]:
-    pass
+   pass
 
 def get_migration_paths_by_destination(destination: Habitat) -> list[MigrationPath]:
     pass
@@ -121,7 +123,7 @@ def schedule_migration(migration_path: MigrationPath) -> None:
     pass
 
 def update_animal_details(animal_id: int, **kwargs: Any) -> None:
-    pass
+   pass
 
 def update_habitat_details(habitat_id: int, **kwargs: dict[str, Any]) -> None:
     pass
