@@ -88,6 +88,12 @@ class BattleModel:
         return score
 
     def get_combatants(self) -> List[Meal]:
+        """
+            Retrieves the current list of combatants
+
+            Returns:
+                List[Meal]: The current list of combatants (Meals)
+        """
         logger.info("Retrieving current list of combatants.")
         return self.combatants
 
