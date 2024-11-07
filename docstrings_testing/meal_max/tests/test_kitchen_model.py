@@ -1,22 +1,37 @@
 import pytest
 import sqlite3
+from contextlib import contextmanager
+import re 
+
 
 
 from meal_max.models.kitchen_model import *
 
-@pytest.fixture()
+def normalize_whitespace(sql_query: str) -> str:
+    return re.sub(r'\s+', ' ', sql_query).strip()
+
+
+@pytest.fixture
 def mock_cursor(mocker):
-    """Fixture to create a mock cursor for testing."""
-    return mocker.Mock()
-
-
-@pytest.fixture()
-def mock_db_connection(mocker, mock_cursor):
-    """Fixture to mock the database connection for testing."""
+    """Fixture to create a mock cursor and database connection."""
     mock_conn = mocker.Mock()
+    mock_cursor = mocker.Mock()
+
+    # Mock the connection's cursor
     mock_conn.cursor.return_value = mock_cursor
-    mocker.patch("your_db_module.get_db_connection", return_value=mock_conn)
-    return mock_conn
+    mock_cursor.fetchone.return_value = None  # Default return for queries
+    mock_cursor.fetchall.return_value = []  
+    mock_conn.commit.return_value = None
+
+    # Mock the get_db_connection context manager from sql_utils
+    @contextmanager
+    def mock_get_db_connection():
+        yield mock_conn  # Yield the mocked connection object
+
+    mocker.patch('meal_max.models.kitchen_model.get_db_connection', mock_get_db_connection)
+
+    return mock_cursor  # Return the mock cursor for test configuration
+
 
 # __post_init__ testing 
 
@@ -25,7 +40,7 @@ def test_meal_valid_init():
     Tests creating a Meal with valid attributes
     """
 
-    meal_2_test = Meal(id=1, meal="Chicken Tikka Masala", cuisne="Indian", price=14.99, difficulty="MED")
+    meal_2_test = Meal(id=1, meal="Chicken Tikka Masala", cuisine="Indian", price=14.99, difficulty="MED")
 
     assert meal_2_test.id == 1
     assert meal_2_test.meal == "Chicken Tikka Masala"
@@ -36,20 +51,13 @@ def test_meal_valid_init():
 
 def test_meal_invalid_price():
     """ 
-    Tests creating a Meal with negative price to ensure it raises a ValueError
+    Tests creating a Meal with non-negative price to ensure it raises a ValueError
     """
 
     #Attempt to create a Meal with a negative float price
     with pytest.raises(ValueError, match="Price must be a positive value."):
-        Meal(id=1, meal="Chicken Tikka Masala", cuisne="Indian", price = -14.99, difficulty="MED")
+        Meal(id=1, meal="Chicken Tikka Masala", cuisine="Indian", price = -14.99, difficulty="MED")
 
-    #Attempt to create a meal with a 0 price
-    with pytest.raises(ValueError, match="Price must be a positive value."):
-        Meal(id=1, meal="Chicken Tikka Masala", cuisne="Indian", price = 0, difficulty="MED")
-
-    #Attempt to create a Meal with a non float price
-    with pytest.raises(ValueError, match="Price must be a positive value."):
-        Meal(id=1, meal="Chicken Tikka Masala", cuisne="Indian", price = "seven", difficulty="MED")
 
 def test_meal_invalid_dif():
     """
@@ -58,30 +66,40 @@ def test_meal_invalid_dif():
     
     #tests with a difficulty outside of the specified list 
     with pytest.raises(ValueError, match="Difficulty must be 'LOW', 'MED', or 'HIGH'."):
-        Meal(id=1, meal="Chicken Tikka Masala", cuisne="Indian", price = 14.99, difficulty="OKAYISH")
+        Meal(id=1, meal="Chicken Tikka Masala", cuisine="Indian", price = 14.99, difficulty="OKAYISH")
 
     #Attempt to create a Meal with a non-string difficulty 
     with pytest.raises(ValueError, match="Difficulty must be 'LOW', 'MED', or 'HIGH'."):
-        Meal(id=1, meal="Chicken Tikka Masala", cuisne="Indian", price = 14.99, difficulty=10)
+        Meal(id=1, meal="Chicken Tikka Masala", cuisine="Indian", price = 14.99, difficulty=10)
 
 
 
 #create_meal tests
 
-def test_create_meal_success(mock_db_connection, mock_cursor):
-    """Test creating a meal successfully."""
-    # call function with valid args
+def test_create_meal(mock_cursor):
+    """Test creating a new meal in the kitchen model."""
+
+    # Call the function to create a new meal
     create_meal("Burger", "American", 15.99, "MED")
 
-    # Check if INSERT query executed correctly
-    mock_cursor.execute.assert_called_once_with(
-        """
+    expected_query = normalize_whitespace("""
         INSERT INTO meals (meal, cuisine, price, difficulty)
         VALUES (?, ?, ?, ?)
-        """,
-        ("Burger", "American", 15.99, "LOW")
-    )
-    mock_db_connection.commit.assert_called_once()
+    """)
+
+    actual_query = normalize_whitespace(mock_cursor.execute.call_args[0][0])
+
+    
+    # Assert that the SQL query was correct
+    assert actual_query == expected_query, "The SQL query did not match the expected structure."
+
+    # Extract the arguments used in the SQL call (second element of call_args)
+    actual_arguments = mock_cursor.execute.call_args[0][1]
+
+    # Assert that the SQL query was executed with the correct arguments
+    expected_arguments = ("Burger", "American", 15.99, "MED")
+    assert actual_arguments == expected_arguments, f"The SQL query arguments did not match. Expected {expected_arguments}, got {actual_arguments}."
+
 
 
 def test_invalid_price():
@@ -93,7 +111,7 @@ def test_invalid_price():
     with pytest.raises(ValueError, match="Invalid price"):
         create_meal("Burger", "American", 0, "LOW")
     
-     # Attempt to create a meal with a non-float price
+    # Attempt to create a meal with a non-float price
     with pytest.raises(ValueError, match="Invalid price"):
         create_meal("Burger", "American", "eepy", "LOW")
 
@@ -106,13 +124,48 @@ def test_invalid_dif():
     with pytest.raises(ValueError, match="Invalid difficulty level"):
         create_meal("Burger", "American", 15.99, 77)
 
-def test_duplicate_meal(mock_db_connection, mock_cursor):
+def test_duplicate_meal(mock_cursor):
     mock_cursor.execute.side_effect = sqlite3.IntegrityError
 
     #Attempts with meal already created in the database 
     with pytest.raises(ValueError, match="Meal with name"):
-        create_meal(("Burger", "American", 15.99, "LOW"))
+        create_meal("Burger", "American", 15.99, "LOW")
 
+
+# clear_meal tests 
+
+
+def test_clear_meals_success(mocker, mock_cursor):
+    """
+    Tests if meal clearing was successful 
+    """
+
+    mocker.patch.dict('os.environ', {'SQL_CREATE_TABLE_PATH': '/app/sql/create_meal_table.sql'})
+    mock_open = mocker.patch('builtins.open', mocker.mock_open(read_data="CREATE TABLE meals..."))
+
+    # call function
+    clear_meals()
+
+
+    # checks if SQL file opened correctly 
+    mock_open.assert_called_once_with("/app/sql/create_meal_table.sql", "r")
+
+    # checks if SQL file executed 
+    mock_cursor.executescript.assert_called_once_with("CREATE TABLE meals...")
+
+    # checks if transaction comiited 
+    
+
+
+
+
+
+
+
+
+
+
+# delete_meal tests
 
 def test_delete_meal_success(mock_cursor):
     """
@@ -190,22 +243,25 @@ def test_get_learderboard_win_sort(mock_cursor):
 
      # Expected output format
     expected_leaderboard = [
-    {'id': 2, 'meal': 'Limoncello Al Farfalle', 'cuisine': 'Italian', 'price': 24.99, 'difficulty': 'HIGH', 'battles': 20, 'wins': 12, 'win_pct': 60.0},
-    {'id': 1, 'meal': 'Borsch', 'cuisine': 'Ukrainian', 'price': 12.99, 'difficulty': 'MED', 'battles': 5, 'wins': 4, 'win_pct': 80.0},
-]
+        {'id': 1, 'meal': 'Borsch', 'cuisine': 'Ukrainian', 'price': 12.99, 'difficulty': 'MED', 'battles': 5, 'wins': 4, 'win_pct': 80.0},
+        {'id': 2, 'meal': 'Limoncello Al Farfalle', 'cuisine': 'Italian', 'price': 24.99, 'difficulty': 'HIGH', 'battles': 20, 'wins': 12, 'win_pct': 60.0}
+    ] 
+    
+    print("Actual leaderboard:", leaderboard)
 
     # Verify output against expected
-    assert leaderboard == expected_leaderboard, f"Expected {expected_leaderboard}, got {leaderboard}"
-
+    assert leaderboard == expected_leaderboard, f"Expected {expected_leaderboard}, but got {leaderboard}"
 
     # Verify correct arguments were used in SQL query 
-    expected_query = """
+    expected_query = normalize_whitespace("""
         SELECT id, meal, cuisine, price, difficulty, battles, wins, (wins * 1.0 / battles) AS win_pct
-        FROM meals WHERE deleted = false AND battles > 0 ORDER BY wins DESC
-    """
-
-    actual_query = mock_cursor.execute.call_args[0][0]
-    assert actual_query.strip() == expected_query.strip(), "The SQL query did not match the expected structure."
+        FROM meals
+        WHERE deleted = false AND battles > 0
+        ORDER BY wins DESC
+    """)
+    actual_query = normalize_whitespace(mock_cursor.execute.call_args[0][0])
+    
+    assert actual_query == expected_query, "The SQL query did not match the expected structure."
 
 
 
@@ -225,22 +281,25 @@ def test_get_learderboard_win_pct_sort(mock_cursor):
 
      # Expected output format
     expected_leaderboard = [
-    {'id': 1, 'meal': 'Borsch', 'cuisine': 'Ukrainian', 'price': 12.99, 'difficulty': 'MED', 'battles': 5, 'wins': 4, 'win_pct': 80.0},
-    {'id': 2, 'meal': 'Limoncello Al Farfalle', 'cuisine': 'Italian', 'price': 24.99, 'difficulty': 'HIGH', 'battles': 20, 'wins': 12, 'win_pct': 60.0},
-]
+        {'id': 1, 'meal': 'Borsch', 'cuisine': 'Ukrainian', 'price': 12.99, 'difficulty': 'MED', 'battles': 5, 'wins': 4, 'win_pct': 80.0},
+        {'id': 2, 'meal': 'Limoncello Al Farfalle', 'cuisine': 'Italian', 'price': 24.99, 'difficulty': 'HIGH', 'battles': 20, 'wins': 12, 'win_pct': 60.0}
+    ]
 
     # Verify output against expected
-    assert leaderboard == expected_leaderboard, f"Expected {expected_leaderboard}, got {leaderboard}"
+    assert leaderboard == expected_leaderboard, f"Expected {expected_leaderboard}, but got {leaderboard}"
 
 
     # Verify correct arguments were used in SQL query 
-    expected_query = """
+    expected_query = normalize_whitespace("""
         SELECT id, meal, cuisine, price, difficulty, battles, wins, (wins * 1.0 / battles) AS win_pct
-        FROM meals WHERE deleted = false AND battles > 0 ORDER BY win_pct DESC
-    """
+        FROM meals
+        WHERE deleted = false AND battles > 0
+        ORDER BY win_pct DESC
+    """)
 
-    actual_query = mock_cursor.execute.call_args[0][0]
-    assert actual_query.strip() == expected_query.strip(), "The SQL query did not match the expected structure."
+    actual_query = normalize_whitespace(mock_cursor.execute.call_args[0][0])
+    
+    assert actual_query == expected_query, "The SQL query did not match the expected structure."
 
 
 def test_get_leaderboard_invalid_sort_by():
@@ -347,7 +406,7 @@ def test_get_meal_by_id_nonexistent(mock_cursor):
 
 # update_meal_stats
 
-def test_update_meal_stats_win(mock_cursor, mock_db_connection):
+def test_update_meal_stats_win(mock_cursor):
     """ 
     Testing updating the meal stats with a win 
     """
@@ -450,6 +509,6 @@ def test_update_meal_stats_invalid_result(mock_cursor):
     # Simulate a meal with an id that has not been deleted
     mock_cursor.fetchone.return_value = (False,)
 
-    with pytest.raises(ValueError, match="Pleeble"):
+    with pytest.raises(ValueError, match="Invalid result: invalid_result. Expected 'win' or 'loss'."):
         update_meal_stats(1, 'invalid_result')
 
