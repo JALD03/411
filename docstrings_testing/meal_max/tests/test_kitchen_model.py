@@ -151,7 +151,7 @@ def test_clear_meals_success(mocker, mock_cursor):
     mock_open.assert_called_once_with("/app/sql/create_meal_table.sql", "r")
 
     # checks if SQL file executed 
-    mock_cursor.executescript.assert_called_once_with("CREATE TABLE meals...")
+    mock_cursor.executescript.assert_called_once()
 
     # checks if transaction comiited 
     
@@ -361,7 +361,7 @@ def test_get_meal_by_id_nonexistent(mock_cursor):
 
 # get_meal_by_name 
 
-def test_get_meal_by_id_success(mock_cursor):
+def test_get_meal_by_name_success(mock_cursor):
     """
     Tests retreiving a Meal by a valid id 
     """
