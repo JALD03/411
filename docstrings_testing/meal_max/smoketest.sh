@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Define the base URL for the Flask API
-BASE_URL="http://localhost:5000/api"
+BASE_URL="http://127.0.0.1:5001/api"
 
 # Flag to control whether to echo JSON output
 ECHO_JSON=false
@@ -52,14 +52,14 @@ check_db() {
 # create_meal 
 
 create_meal() {
-  name=$1
+  meal=$1
   cuisine=$2
   price=$3
-  dificulty=$4
+  difficulty=$4
 
-  echo "Adding meal ($meal - $cuisine, $price) to the database..."
+  echo "Adding meal ($meal, $cuisine, $price, $difficulty) to the database..."
   curl -s -X POST "$BASE_URL/create-meal" -H "Content-Type: application/json" \
-    -d "{\"name\":\"$name\", \"cuisine\":\"$cuisine\", \"price\":$price, \"difficulty\":\"$difficulty\"}" | grep -q '"status": "success"'
+    -d "{\"meal\":\"$meal\", \"cuisine\":\"$cuisine\", \"price\":$price, \"difficulty\":\"$difficulty\"}" | grep -q '"status": "success"'
 
 
   # if added, then it will exit with a 0
@@ -75,7 +75,7 @@ create_meal() {
 clear_meals() {
   echo "Clearing meals from database..."
 
-  curl -s -X POST "$BASE_URL/clear-meals" | grep -q '"status": "success"'
+  curl -s -X DELETE "$BASE_URL/clear-meals" | grep -q '"status": "success"'
 
 }
 
@@ -97,7 +97,7 @@ delete_meal() {
 
 
 get_leaderboard() {
-  sort_by = $1 
+  sort_by=$1 
 
   echo "Retreiving leaderboard sorted by $sort_by..."
 
@@ -119,7 +119,7 @@ get_meal_by_id() {
 
   echo "Retrieving meal by ID ($meal_id)..."
 
-  response=$(curl -s -G "$BASE_URL/get-meal-by-id" --data-urlencode "meal_id=$meal_id")
+  response=$(curl -s "$BASE_URL/get-meal-by-id/$meal_id")
 
   if echo "$response" | grep -q '"status": "success"'; then
     echo "Meal retrieved successfully by ID ($meal_id)."
@@ -159,7 +159,9 @@ update_meal_stats() {
 
   echo "Updating meal stats for meal ID ($meal_id) with result ($result)..."
 
-  response=$(curl -s -X PUT "$BASE_URL/update-meal-stats/$meal_id" -d "{\"result\": \"$result\"}")
+  response=$(curl -s -X PUT "$BASE_URL/update-meal-stats/$meal_id" \
+    -H "Content-Type: application/json" \
+    -d "{\"result\": \"$result\"}")
 
   if echo "$response" | grep -q '"status": "success"'; then
     echo "Meal stats updated successfully for meal ID ($meal_id)."
@@ -182,7 +184,7 @@ prep_combatant() {
   price=$3
 
   echo "Adding combatant to battle: $meal - $cuisine ($price)..."
-  response=$(curl -s -X POST "$BASE_URL/prep-combtatant" \
+  response=$(curl -s -X POST "$BASE_URL/prep-combatant" \
     -H "Content-Type: application/json" \
     -d "{\"meal\":\"$meal\", \"cuisine\":\"$cuisine\", \"price\":$price}")
 
@@ -328,6 +330,35 @@ except Exception:
   fi
 }
 
+battle_with_three_combatants() {
+  echo "Trying to start a battle with three combatants..."
+  response=$(python3 -c "
+from meal_max.models.kitchen_model import Meal
+from meal_max.battle.battle_model import BattleModel
+
+combatant1 = Meal(id=1, meal='Pasta', price=10, cuisine='Italian', difficulty='MED')
+combatant2 = Meal(id=2, meal='Sushi', price=12, cuisine='Japanese', difficulty='HIGH')
+combatant3 = Meal(id=3, meal='Tacos', price=8, cuisine='Mexican', difficulty='LOW')
+battle_model = BattleModel()
+battle_model.prep_combatant(combatant1)
+battle_model.prep_combatant(combatant2)
+
+response = 'FAIL'
+try:
+    battle_model.prep_combatant(combatant3)
+except ValueError:
+    response = 'PASS'
+
+print(response)
+")
+  if [ "$response" == "PASS" ]; then
+    echo "Attempting to start a battle with three combatants raises ValueError: PASS"
+  else
+    echo "Failed to catch attempt to start a battle with three combatants: FAIL"
+    exit 1
+  fi
+}
+
 # Test that a battle results in one combatant being removed
 battle_removes_loser() {
   echo "Testing that a loser is removed from combatants list..."
@@ -426,6 +457,9 @@ print('PASS' if len(battle_model.get_combatants()) == 0 else 'FAIL')
     echo "Failed to clear combatants: FAIL"
     exit 1
 
+  fi 
+}
+
 
 
 
@@ -433,7 +467,7 @@ check_health
 check_db
 
 
-create_meal "Burger" "America" 15.99 "MED"
+create_meal "Burger" "American" 15.99 "MED"
 create_meal "Tikka Masala" "Indian" 12.99 "LOW"
 create_meal "Pizza" "Italian" 29.99 "HIGH" 
 create_meal "Geese" "Silly" 1000 "HIGH" 
@@ -441,10 +475,10 @@ create_meal "Hawaiian Pizza" "Sin" 1 "LOW"
 
 delete_meal 1 
 
-clear_meals()
+clear_meals
 
 
-create_meal "Burger" "America" 15.99 "MED"
+create_meal "Burger" "American" 15.99 "MED"
 create_meal "Tikka Masala" "Indian" 12.99 "LOW"
 create_meal "Pizza" "Italian" 29.99 "HIGH" 
 create_meal "Geese" "Silly" 1000 "HIGH" 
@@ -454,25 +488,41 @@ create_meal "Hawaiian Pizza" "Sin" 1 "LOW"
 get_meal_by_id 1
 get_meal_by_name "Pizza"
 
-update_meal_stats 1 "win"
-update_meal_stats 1 "win"
 
-prep_combatant()
-add_one_combatant()
-add_two_combatants()
-clear_combatants()
 
-add_third_combatant()
-battle_with_insufficient_combatants()
-battle_with_two_combatants()
-battle_removes_loser()
+
+
+
+
+
+
+#here 
+prep_combatant "Burger" "American" 15.99
+battle_with_insufficient_combatants
+
+prep_combatant "Tikka Masala" "Indian" 12.99
+battle_with_two_combatants
+
+
+battle_removes_loser
+
+prep_combatant "Pizza" "Italian" 29.99
+prep_combatant "Geese" "Silly" 1000.0
+battle_with_three_combatants
+
+
 
 get_leaderboard "win"
 get_leaderboard "win_pct"
 
 
-calculate_battle_score_valid()
-calculate_battle_score_invalid_difficulty()
+
+calculate_battle_score_valid
+calculate_battle_score_invalid_difficulty
+
+clear_combatants 
+
+echo "All tests passed successfully!"
 
 
 
