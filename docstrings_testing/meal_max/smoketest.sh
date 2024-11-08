@@ -425,3 +425,56 @@ print('PASS' if len(battle_model.get_combatants()) == 0 else 'FAIL')
   else
     echo "Failed to clear combatants: FAIL"
     exit 1
+
+
+
+
+check_health
+check_db
+
+
+create_meal "Burger" "America" 15.99 "MED"
+create_meal "Tikka Masala" "Indian" 12.99 "LOW"
+create_meal "Pizza" "Italian" 29.99 "HIGH" 
+create_meal "Geese" "Silly" 1000 "HIGH" 
+create_meal "Hawaiian Pizza" "Sin" 1 "LOW" 
+
+delete_meal 1 
+
+clear_meals()
+
+
+create_meal "Burger" "America" 15.99 "MED"
+create_meal "Tikka Masala" "Indian" 12.99 "LOW"
+create_meal "Pizza" "Italian" 29.99 "HIGH" 
+create_meal "Geese" "Silly" 1000 "HIGH" 
+create_meal "Hawaiian Pizza" "Sin" 1 "LOW" 
+
+
+get_meal_by_id 1
+get_meal_by_name "Pizza"
+
+update_meal_stats 
+
+prep_combatant()
+add_one_combatant()
+add_two_combatants()
+clear_combatants()
+
+add_third_combatant()
+battle_with_insufficient_combatants()
+battle_with_two_combatants()
+battle_removes_loser()
+
+get_leaderboard "win"
+get_leaderboard "win_pct"
+
+
+calculate_battle_score_valid()
+calculate_battle_score_invalid_difficulty()
+
+
+
+
+
+
