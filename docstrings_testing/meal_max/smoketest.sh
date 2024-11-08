@@ -454,7 +454,8 @@ create_meal "Hawaiian Pizza" "Sin" 1 "LOW"
 get_meal_by_id 1
 get_meal_by_name "Pizza"
 
-update_meal_stats 
+update_meal_stats 1 "win"
+update_meal_stats 1 "win"
 
 prep_combatant()
 add_one_combatant()
