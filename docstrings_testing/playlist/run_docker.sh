@@ -1,12 +1,12 @@
 #!/bin/bash
 
 # Variables
-IMAGE_NAME="playlist"
-CONTAINER_TAG="0.0.1"
-HOST_PORT=5000
-CONTAINER_PORT=5000
-DB_VOLUME_PATH="./db"   # Adjust this to the desired host path for the database persistence
-BUILD=true  # Set this to true if you want to build the image
+ENV IMAGE_NAME="playlist"
+ENV CONTAINER_TAG="0.0.1"
+ENV HOST_PORT=5000
+ENV CONTAINER_PORT=5000
+ENV DB_VOLUME_PATH="./db"
+ENV BUILD=true
 
 # Check if we need to build the Docker image
 if [ "$BUILD" = true ]; then
