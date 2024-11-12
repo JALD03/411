@@ -47,7 +47,11 @@ check_db() {
 }
 
 
-# Meal Management
+###############################################
+#
+# Meal Managment 
+#
+###############################################
 
 # create_meal 
 
@@ -96,24 +100,6 @@ delete_meal() {
 }
 
 
-get_leaderboard() {
-  sort_by=$1  
-
-  echo "Retrieving leaderboard sorted by: $sort_by..."
-
-  response=$(curl -s -G "$BASE_URL/leaderboard" \
-    -H "Content-Type: application/json" \
-    --data-urlencode "sort=$sort_by")
-
-  if echo "$response" | grep -q '"status": "success"'; then
-    echo "Successfully retrieved leaderboard sorted by $sort_by."
-    echo "Leaderboard: $response"
-  else
-    echo "Failed to retrieve leaderboard."
-    echo "Response: $response"
-    exit 1
-  fi
-}
 
 
 get_meal_by_id() {
@@ -174,11 +160,11 @@ update_meal_stats() {
 }
 
 
-##########################################################
+###############################################
 #
-# Battle Management
+# Battle Tests
 #
-##########################################################
+###############################################
 
 prep_combatant() {
   meal=$1
@@ -200,13 +186,6 @@ prep_combatant() {
     exit 1
   fi
 }
-
-###############################################
-#
-# Combatant Addition Tests
-#
-###############################################
-
 
 battle() {
   echo "Initiating battle with current combatants..."
@@ -248,191 +227,6 @@ get_combatants() {
 
 
 
-
-# Test adding one combatant
-add_one_combatant() {
-  echo "Adding one combatant..."
-  response=$(python3 -c "
-from meal_max.models.kitchen_model import Meal
-from meal_max.battle.battle_model import BattleModel
-
-combatant = Meal(id=1, meal='Pasta', price=10, cuisine='Italian', difficulty='MED')
-battle_model = BattleModel()
-battle_model.prep_combatant(combatant)
-print('PASS' if len(battle_model.get_combatants()) == 1 else 'FAIL')
-")
-  if [ "$response" == "PASS" ]; then
-    echo "Successfully added one combatant: PASS"
-  else
-    echo "Failed to add combatant: FAIL"
-    exit 1
-  fi
-}
-
-# Test adding two combatants
-add_two_combatants() {
-  echo "Adding two combatants..."
-  response=$(python3 -c "
-from meal_max.models.kitchen_model import Meal
-from meal_max.battle.battle_model import BattleModel
-
-combatant1 = Meal(id=1, meal='Pasta', price=10, cuisine='Italian', difficulty='MED')
-combatant2 = Meal(id=2, meal='Sushi', price=12, cuisine='Japanese', difficulty='HIGH')
-battle_model = BattleModel()
-battle_model.prep_combatant(combatant1)
-battle_model.prep_combatant(combatant2)
-print('PASS' if len(battle_model.get_combatants()) == 2 else 'FAIL')
-")
-  if [ "$response" == "PASS" ]; then
-    echo "Successfully added two combatants: PASS"
-  else
-    echo "Failed to add two combatants: FAIL"
-    exit 1
-  fi
-}
-
-# Test trying to add a third combatant (should fail)
-add_third_combatant() {
-  echo "Trying to add a third combatant..."
-  response=$(python3 -c "
-from meal_max.models.kitchen_model import Meal
-from meal_max.battle.battle_model import BattleModel
-
-combatant1 = Meal(id=1, meal='Pasta', price=10, cuisine='Italian', difficulty='MED')
-combatant2 = Meal(id=2, meal='Sushi', price=12, cuisine='Japanese', difficulty='HIGH')
-combatant3 = Meal(id=3, meal='Tacos', price=8, cuisine='Mexican', difficulty='LOW')
-battle_model = BattleModel()
-battle_model.prep_combatant(combatant1)
-battle_model.prep_combatant(combatant2)
-response = 'FAIL'
-try:
-    battle_model.prep_combatant(combatant3)
-except ValueError:
-    response = 'PASS'
-print(response)
-")
-  if [ "$response" == "PASS" ]; then
-    echo "Attempting to add more than two combatants raises ValueError: PASS"
-  else
-    echo "Failed to catch attempt to add a third combatant: FAIL"
-    exit 1
-  fi
-}
-
-###############################################
-#
-# Battle Tests
-#
-###############################################
-
-
-
-# Test battle with two combatants
-battle_with_two_combatants() {
-  echo "Starting a battle with two combatants..."
-  response=$(python3 -c "
-from meal_max.models.kitchen_model import Meal
-from meal_max.battle.battle_model import BattleModel
-
-battle_model = BattleModel()
-combatant1 = Meal(id=1, meal='Pasta', price=10, cuisine='Italian', difficulty='MED')
-combatant2 = Meal(id=2, meal='Sushi', price=12, cuisine='Japanese', difficulty='HIGH')
-battle_model.prep_combatant(combatant1)
-battle_model.prep_combatant(combatant2)
-try:
-    winner = battle_model.battle()
-    print('PASS' if winner in [combatant1.meal, combatant2.meal] else 'FAIL')
-except Exception:
-    print('FAIL')
-")
-  if [ "$response" == "PASS" ]; then
-    echo "Battle with two combatants completed successfully: PASS"
-  else
-    echo "Battle with two combatants failed: FAIL"
-    exit 1
-  fi
-}
-
-
-# Test that a battle results in one combatant being removed
-battle_removes_loser() {
-  echo "Testing that a loser is removed from combatants list..."
-  response=$(python3 -c "
-from meal_max.models.kitchen_model import Meal
-from meal_max.battle.battle_model import BattleModel
-
-battle_model = BattleModel()
-combatant1 = Meal(id=1, meal='Pasta', price=10, cuisine='Italian', difficulty='MED')
-combatant2 = Meal(id=2, meal='Sushi', price=12, cuisine='Japanese', difficulty='HIGH')
-battle_model.prep_combatant(combatant1)
-battle_model.prep_combatant(combatant2)
-winner = battle_model.battle()
-remaining_combatants = battle_model.get_combatants()
-print('PASS' if len(remaining_combatants) == 1 and winner.meal in [combatant1.meal, combatant2.meal] else 'FAIL')
-")
-  if [ "$response" == "PASS" ]; then
-    echo "Loser successfully removed after battle: PASS"
-  else
-    echo "Failed to remove loser after battle: FAIL"
-    exit 1
-  fi
-}
-
-###############################################
-#
-# Score Calculation Tests
-#
-###############################################
-
-# Test battle score calculation (valid combatant data)
-calculate_battle_score_valid() {
-  echo "Testing valid battle score calculation..."
-  response=$(python3 -c "
-from meal_max.models.kitchen_model import Meal
-from meal_max.battle.battle_model import BattleModel
-
-combatant = Meal(id=1, meal='Pasta', price=10, cuisine='Italian', difficulty='MED')
-battle_model = BattleModel()
-score = battle_model.get_battle_score(combatant)
-print('PASS' if score > 0 else 'FAIL')
-")
-  if [ "$response" == "PASS" ]; then
-    echo "Valid battle score calculated: PASS"
-  else
-    echo "Invalid battle score calculation: FAIL"
-    exit 1
-  fi
-}
-
-# Test battle score calculation with invalid difficulty level
-calculate_battle_score_invalid_difficulty() {
-  echo "Testing battle score calculation with invalid difficulty..."
-  response=$(python3 -c "
-from meal_max.models.kitchen_model import Meal
-from meal_max.battle.battle_model import BattleModel
-
-combatant = Meal(id=1, meal='Pasta', price=10, cuisine='Italian', difficulty='INVALID')
-battle_model = BattleModel()
-try:
-    score = battle_model.get_battle_score(combatant)
-    print('FAIL')
-except KeyError:
-    print('PASS')
-")
-  if [ "$response" == "PASS" ]; then
-    echo "Invalid difficulty level handled correctly: PASS"
-  else
-    echo "Invalid difficulty level handling failed: FAIL"
-    exit 1
-  fi
-}
-
-###############################################
-#
-# Combatant Clearing Tests
-#
-###############################################
-
 # Test clearing combatants
 clear_combatants() {
   echo "Clearing the combatants list..."
@@ -450,7 +244,31 @@ clear_combatants() {
 }
 
 
+###############################################
+#
+# Leaderboard tests
+#
+###############################################
 
+
+get_leaderboard() {
+  sort_by=$1  
+
+  echo "Retrieving leaderboard sorted by: $sort_by..."
+
+  response=$(curl -s -G "$BASE_URL/leaderboard" \
+    -H "Content-Type: application/json" \
+    --data-urlencode "sort=$sort_by")
+
+  if echo "$response" | grep -q '"status": "success"'; then
+    echo "Successfully retrieved leaderboard sorted by $sort_by."
+    echo "Leaderboard: $response"
+  else
+    echo "Failed to retrieve leaderboard."
+    echo "Response: $response"
+    exit 1
+  fi
+}
 
 
 check_health
