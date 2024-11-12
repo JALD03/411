@@ -7,9 +7,7 @@ from meal_max.utils.random_utils import get_random
 from meal_max.utils.sql_utils import get_db_connection
 
 
-
 # Test Fixtures
-
 @pytest.fixture
 def mock_cursor(mocker):
     mock_conn = mocker.Mock()
@@ -57,6 +55,10 @@ def sample_meal3():
     #create_meal(meal='Pizza', cuisine='Italian', price=8.0, difficulty='LOW')
     return Meal(id=3, meal='Pizza', price=8.0, cuisine='Italian', difficulty='LOW')
 
+
+def test_battle_model_initialization():
+    battle_model = BattleModel()
+    assert battle_model.combatants == [] 
 
 @pytest.fixture()
 def prepared_combatants(sample_meal1, sample_meal2):
@@ -170,9 +172,6 @@ def test_battle_with_identical_scores(battle_model, prepared_combatants2, mock_g
     assert len(battle_model.combatants) == 1
 
 
-
-
-
 def test_battle_with_close_scores(battle_model, prepared_combatants, mock_get_random, mock_cursor):
     """
     Test the battle when both meals have very close scores.
@@ -185,7 +184,7 @@ def test_battle_with_close_scores(battle_model, prepared_combatants, mock_get_ra
     assert len(battle_model.combatants) == 1
 
 
-def test_battle_with_more_than_two_combatants(battle_model, prepared_combatants, sample_meal3, mock_get_random):
+def test_battle_with_more_than_two(battle_model, prepared_combatants, sample_meal3, mock_get_random):
     """
     Test the behavior when trying to start a battle with more than two combatants.
     """
@@ -195,5 +194,32 @@ def test_battle_with_more_than_two_combatants(battle_model, prepared_combatants,
 
     with pytest.raises(ValueError, match="Combatant list is full, cannot add more combatants."):
         battle_model.prep_combatant(sample_meal3)
+
+def test_prep_duplicate_combatant(battle_model, sample_meal1):
+    """
+    Test adding a duplicate combatant to the battle model.
+    """
+    battle_model.prep_combatant(sample_meal1)
+    battle_model.prep_combatant(sample_meal1)
+    assert len(battle_model.combatants) == 2
+
+def test_clear_combatants_when_empty(battle_model):
+    """
+    Test clearing the combatants list when it's already empty.
+    """
+    battle_model.clear_combatants()
+    assert len(battle_model.combatants) == 0
+
+def test_get_combatants_after_modifications(battle_model, sample_meal1, sample_meal2):
+    """
+    Test retrieving the list of combatants after adding and removing.
+    """
+    battle_model.prep_combatant(sample_meal1)
+    battle_model.prep_combatant(sample_meal2)
+    assert len(battle_model.get_combatants()) == 2
+    
+    battle_model.clear_combatants()
+    assert len(battle_model.get_combatants()) == 0
+
 
 
