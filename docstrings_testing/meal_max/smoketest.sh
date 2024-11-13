@@ -171,7 +171,6 @@ prep_combatant() {
 
   echo "Preparing combatant for meal: $meal..."
 
-  # Make a POST request to the /api/prep-combatant route
   response=$(curl -s -X POST "$BASE_URL/prep-combatant" \
     -H "Content-Type: application/json" \
     -d "{\"meal\": \"$meal\"}")
